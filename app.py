@@ -6,10 +6,12 @@ import io
 st.set_page_config(page_title="Generador Pro iPhone", page_icon="📲")
 
 # --- INTERFAZ ---
-st.title("📲 Generador de Estados Premium")
+st.title("📲 Generador Blanco & Negro")
 comision = st.sidebar.number_input("Comisión a sumar (USD)", value=50)
-font_size = st.sidebar.slider("Tamaño de letra", 40, 80, 55) # Subí el rango
-bg_color = "#121212" # Fondo oscuro elegante
+font_size = st.sidebar.slider("Tamaño de letra", 30, 70, 45)
+# Invertimos los colores aquí
+bg_color = "#FFFFFF" # Blanco
+text_color = "#000000" # Negro
 
 input_text = st.text_area("Pega la lista aquí:", height=300)
 
@@ -21,8 +23,8 @@ def procesar_lista(texto, incremento):
     for linea in lineas:
         if any(re.search(patron, linea, re.IGNORECASE) for patron in patrones_corte):
             break
-        # Limpiar caracteres raros que rompen la fuente básica
-        l = linea.replace('‼️', '!!').replace('🔺', '>').replace('🔻', '>').replace('◼️', '---')
+        # Limpieza de símbolos que no se ven bien en blanco y negro
+        l = linea.replace('‼️', '!!').replace('🔺', '•').replace('🔻', '•').replace('◼️', '---')
         lineas_limpias.append(l)
     
     texto_filtrado = "\n".join(lineas_limpias)
@@ -34,7 +36,7 @@ def procesar_lista(texto, incremento):
     pattern = r'([=:]\s*)(\d+)(\s*\$?)'
     return re.sub(pattern, substituir, texto_filtrado).strip()
 
-if st.button("Generar Imagen"):
+if st.button("Generar Imagen Blanca"):
     if input_text:
         texto_final = procesar_lista(input_text, comision)
         
@@ -42,27 +44,25 @@ if st.button("Generar Imagen"):
         img = Image.new('RGB', (1080, 1920), color=bg_color)
         draw = ImageDraw.Draw(img)
         
-        # Intentar cargar fuente del sistema
+        # Intentar cargar fuente
         try:
-            # En servidores Linux/Streamlit suele estar DejaVuSans
+            # Esta ruta suele funcionar en Streamlit Cloud
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
 
-        # Dibujar el texto con mejor espaciado
+        # Dibujar el texto
         y_offset = 150
-        margin_left = 80
-        line_spacing = 25 # Espacio extra entre líneas
+        margin_left = 100
+        line_spacing = 30 
         
         for line in texto_final.split('\n'):
-            # Dibujar sombra para que resalte
-            draw.text((margin_left+2, y_offset+2), line, font=font, fill="#000000")
-            # Dibujar texto blanco
-            draw.text((margin_left, y_offset), line, font=font, fill="#FFFFFF")
+            # Escribir directamente en negro
+            draw.text((margin_left, y_offset), line, font=font, fill=text_color)
             y_offset += font_size + line_spacing
             
-        st.image(img, caption="Imagen Optimizada")
+        st.image(img, caption="Vista previa (Blanco y Negro)")
         
         buf = io.BytesIO()
         img.save(buf, format="PNG")
-        st.download_button("📥 Descargar para WhatsApp", buf.getvalue(), "estado.png", "image/png")
+        st.download_button("📥 Descargar para WhatsApp", buf.getvalue(), "estado_blanco.png", "image/png")
