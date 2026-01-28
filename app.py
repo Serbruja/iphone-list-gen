@@ -5,41 +5,32 @@ import io
 
 st.set_page_config(page_title="Generador Pro iPhone", page_icon="📲")
 
-st.title("📲 Creador de Estados para WhatsApp")
-st.markdown("Filtra automáticamente la dirección y suma tu comisión.")
-
-# Configuración lateral
+# --- INTERFAZ ---
+st.title("📲 Generador de Estados Premium")
 comision = st.sidebar.number_input("Comisión a sumar (USD)", value=50)
-font_size = st.sidebar.slider("Tamaño de letra", 25, 50, 35)
+font_size = st.sidebar.slider("Tamaño de letra", 40, 80, 55) # Subí el rango
+bg_color = "#121212" # Fondo oscuro elegante
 
-input_text = st.text_area("Pega la lista completa del proveedor:", height=300)
+input_text = st.text_area("Pega la lista aquí:", height=300)
 
 def procesar_lista(texto, incremento):
-    # 1. CORTE DE SEGURIDAD: Eliminamos dirección, horarios y métodos de pago
-    # Busca palabras clave que indican el final de la lista de productos
+    # Filtro de dirección y limpieza
     patrones_corte = [r"⏰", r"📍", r"CABA", r"Lunes a viernes", r"💵", r"📦"]
     lineas = texto.split('\n')
     lineas_limpias = []
-    
     for linea in lineas:
-        # Si la línea contiene alguna palabra de corte, dejamos de procesar el resto
         if any(re.search(patron, linea, re.IGNORECASE) for patron in patrones_corte):
             break
-        lineas_limpias.append(linea)
+        # Limpiar caracteres raros que rompen la fuente básica
+        l = linea.replace('‼️', '!!').replace('🔺', '>').replace('🔻', '>').replace('◼️', '---')
+        lineas_limpias.append(l)
     
     texto_filtrado = "\n".join(lineas_limpias)
 
-    # 2. INCREMENTO DE PRECIO
-    # Detecta precios como: = 640$, =740, : 940, 1280$
+    # Sumar comisión
     def substituir(match):
-        separador = match.group(1) if match.group(1) else ""
-        precio = int(match.group(2))
-        simbolo = match.group(3) if match.group(3) else ""
-        
-        nuevo_precio = precio + incremento
-        return f"{separador}{nuevo_precio}{simbolo}"
-
-    # Regex: (opcional: = o : o espacio) (números) (opcional: $)
+        return f"{match.group(1)}{int(match.group(2)) + incremento}{match.group(3)}"
+    
     pattern = r'([=:]\s*)(\d+)(\s*\$?)'
     return re.sub(pattern, substituir, texto_filtrado).strip()
 
@@ -47,28 +38,31 @@ if st.button("Generar Imagen"):
     if input_text:
         texto_final = procesar_lista(input_text, comision)
         
-        # Crear imagen (Fondo oscuro estilo iPhone)
-        img = Image.new('RGB', (1080, 1920), color='#121212')
+        # Crear imagen vertical (1080x1920)
+        img = Image.new('RGB', (1080, 1920), color=bg_color)
         draw = ImageDraw.Draw(img)
         
+        # Intentar cargar fuente del sistema
         try:
-            # Puedes usar 'DejaVuSans' o 'LiberationSans' si estás en Linux/Streamlit Cloud
-            font = ImageFont.load_default() 
+            # En servidores Linux/Streamlit suele estar DejaVuSans
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
 
-        # Dibujar el texto
-        y_offset = 100
-        for line in texto_final.split('\n'):
-            # Dibujar la línea (con un margen a la izquierda de 60px)
-            draw.text((60, y_offset), line, font=font, fill="#FFFFFF")
-            y_offset += font_size + 15
-            
-        st.image(img, caption="Vista previa de tu estado")
+        # Dibujar el texto con mejor espaciado
+        y_offset = 150
+        margin_left = 80
+        line_spacing = 25 # Espacio extra entre líneas
         
-        # Preparar descarga
+        for line in texto_final.split('\n'):
+            # Dibujar sombra para que resalte
+            draw.text((margin_left+2, y_offset+2), line, font=font, fill="#000000")
+            # Dibujar texto blanco
+            draw.text((margin_left, y_offset), line, font=font, fill="#FFFFFF")
+            y_offset += font_size + line_spacing
+            
+        st.image(img, caption="Imagen Optimizada")
+        
         buf = io.BytesIO()
         img.save(buf, format="PNG")
-        st.download_button("Descargar Imagen", buf.getvalue(), "estado_iphone.png", "image/png")
-    else:
-        st.warning("Pega el texto para comenzar.")
+        st.download_button("📥 Descargar para WhatsApp", buf.getvalue(), "estado.png", "image/png")
