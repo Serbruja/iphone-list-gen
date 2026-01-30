@@ -2,68 +2,79 @@ import streamlit as st
 import re
 from PIL import Image, ImageDraw, ImageFont
 import io
+from datetime import datetime
+import os
 
-st.set_page_config(page_title="Generador Pro iPhone", page_icon="📲")
+st.set_page_config(page_title="Generador Premium con Logos", page_icon="📱")
 
-# --- INTERFAZ ---
-st.title("📲 Generador Pro (Sin Cortes)")
+st.title("📱 Generador con Encabezado de Marcas")
+
 comision = st.sidebar.number_input("Comisión a sumar (USD)", value=50)
-font_size = st.sidebar.slider("Tamaño de letra", 30, 60, 42)
-line_spacing = st.sidebar.slider("Espaciado entre líneas", 10, 50, 25)
+font_size = st.sidebar.slider("Tamaño de letra", 30, 60, 40)
 
-input_text = st.text_area("Pega la lista aquí:", height=300)
+input_text = st.text_area("Pega tu lista aquí:", height=300)
 
-def procesar_lista(texto, incremento):
-    patrones_corte = [r"⏰", r"📍", r"CABA", r"Lunes a viernes", r"💵", r"📦"]
+def procesar_universal(texto, incremento):
+    patrones_corte = [r"⏰", r"📍", r"CABA", r"Condiciones de pago", r"🚨", r"⚠️", r"Consultar"]
     lineas = texto.split('\n')
     lineas_limpias = []
     for linea in lineas:
-        if any(re.search(patron, linea, re.IGNORECASE) for patron in patrones_corte):
-            break
-        # Limpieza para evitar cuadraditos
-        l = linea.replace('‼️', '!!').replace('🔺', '•').replace('🔻', '•').replace('◼️', '---')
-        lineas_limpias.append(l)
-    
-    texto_filtrado = "\n".join(lineas_limpias)
+        if any(re.search(patron, linea, re.IGNORECASE) for patron in patrones_corte): break
+        if "MARTES" in linea.upper() or "LISTA ACTUALIZADA" in linea.upper(): continue
+        lineas_limpias.append(linea.replace('‼️', '!!').replace('🔺', '•').replace('🔻', '•'))
 
-    def substituir(match):
-        return f"{match.group(1)}{int(match.group(2)) + incremento}{match.group(3)}"
-    
-    pattern = r'([=:]\s*)(\d+)(\s*\$?)'
-    return re.sub(pattern, substituir, texto_filtrado).strip()
+    resultado = []
+    for linea in lineas_limpias:
+        nueva_linea = re.sub(r'([=–\-]\s*\$?\s*)(\d+)', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
+        if nueva_linea == linea:
+            nueva_linea = re.sub(r'(\$\s*)(\d+)$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
+        resultado.append(nueva_linea)
+    return resultado
 
-if st.button("Generar Imagen Completa"):
+if st.button("Generar Imagen con Logos"):
     if input_text:
-        texto_final = procesar_lista(input_text, comision)
-        lineas_finales = texto_final.split('\n')
+        lineas_finales = procesar_universal(input_text, comision)
+        fecha_hoy = datetime.now().strftime("%d/%m/%Y")
         
-        # --- CÁLCULO DINÁMICO DEL ALTO ---
-        # Calculamos cuánto espacio ocupa el texto realmente
-        margin_top = 100
-        margin_bottom = 100
-        total_line_height = font_size + line_spacing
-        # El alto de la imagen se adapta a la cantidad de líneas
-        dynamic_height = margin_top + (len(lineas_finales) * total_line_height) + margin_bottom
+        # --- CONFIGURACIÓN DE ESPACIO PARA LOGOS ---
+        logo_area_h = 250  # Espacio para los logos arriba
+        font_size_encabezado = 45
+        line_spacing = 20
+        total_h = logo_area_h + 100 + (len(lineas_finales) * (font_size + line_spacing)) + 100
         
-        # Mantenemos el ancho estándar de 1080 (HD)
-        img = Image.new('RGB', (1080, int(dynamic_height)), color="#FFFFFF")
+        img = Image.new('RGB', (1080, int(total_h)), color="#FFFFFF")
         draw = ImageDraw.Draw(img)
-        
+
+        # --- PEGAR LOGOS ---
+        logos = ["logo_apple.png", "logo_samsung.png", "logo_motorola.png", "logo_xiaomi.png"]
+        x_offset = 100
+        for logo_name in logos:
+            if os.path.exists(logo_name):
+                logo_img = Image.open(logo_name).convert("RGBA")
+                # Redimensionar logo para que quepa (ej: 150px de ancho)
+                logo_img.thumbnail((150, 150))
+                # Pegar logo usando su propio canal alfa para transparencia
+                img.paste(logo_img, (x_offset, 50), logo_img)
+                x_offset += 230 # Espacio entre logos
+
+        # --- DIBUJAR TEXTO ---
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            font_fecha = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size_encabezado)
         except:
             font = ImageFont.load_default()
+            font_fecha = ImageFont.load_default()
 
-        # Dibujar el texto
-        y_offset = margin_top
+        # Fecha y Separador
+        draw.text((80, 220), f"📅 PRECIOS ACTUALIZADOS: {fecha_hoy}", font=font_fecha, fill="#000000")
+        draw.line([(80, 280), (1000, 280)], fill="#CCCCCC", width=5)
+
+        y = 330
         for line in lineas_finales:
-            draw.text((80, y_offset), line, font=font, fill="#000000")
-            y_offset += total_line_height
+            draw.text((80, y), line, font=font, fill="#000000")
+            y += font_size + line_spacing
             
-        st.image(img, caption="Imagen generada (Largo ajustable)")
-        
+        st.image(img)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
-        st.download_button("📥 Descargar Imagen Larga", buf.getvalue(), "lista_completa.png", "image/png")
-    else:
-        st.warning("Pega la lista primero.")
+        st.download_button("📥 Descargar Imagen con Logos", buf.getvalue(), "lista_marcas.png")
