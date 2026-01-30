@@ -4,105 +4,118 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 from datetime import datetime
 
-st.set_page_config(page_title="Generador Pro Dúo", page_icon="📲")
+st.set_page_config(page_title="Generador Pro Final", page_icon="📲")
 
-# --- BARRA LATERAL ---
-st.sidebar.header("Configuración")
+# --- CONFIGURACIÓN ---
+st.sidebar.header("Ajustes de Diseño")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
-font_size = st.sidebar.slider("Tamaño de letra", 25, 55, 38)
-lineas_por_pagina = st.sidebar.slider("Líneas por imagen", 20, 50, 30)
+font_size = st.sidebar.slider("Tamaño de letra", 25, 50, 36)
+lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 45, 28)
 
-st.title("📲 Generador de Listas Unificadas")
-st.markdown("Pega ambas listas juntas. El sistema las procesará y dividirá en páginas si es necesario.")
+st.title("📲 Generador de Listas Premium")
 
-input_text = st.text_area("Pega tus listas aquí:", height=300, placeholder="Pega lista de iPhone y Android aquí...")
+input_text = st.text_area("Pega tus listas aquí:", height=300)
 
 def procesar_universal(texto, incremento):
-    # Patrones para limpiar basura logística
-    patrones_corte = [r"⏰", r"📍", r"CABA", r"Condiciones de pago", r"🚨", r"⚠️", r"Lunes a viernes", r"💵", r"📦", r"encomiendas"]
+    # Filtros de exclusión (Lo que NO querés que salga)
+    palabras_prohibidas = [
+        "⏰", "📍", "CABA", "Condiciones", "billetes", "dolares", 
+        "CARGADOR", "cargador", "Consultar", "encomiendas", "CARA CHICA", "No se aceptan"
+    ]
+    
     lineas = texto.split('\n')
     lineas_limpias = []
     
     for linea in lineas:
-        if any(re.search(patron, linea, re.IGNORECASE) for patron in patrones_corte):
-            continue # Saltamos líneas de logística pero seguimos procesando el resto
+        # 1. Filtro: Si la línea tiene algo prohibido, se ignora
+        if any(palabra in linea for palabra in palabras_prohibidas):
+            continue
         
-        # Limpiar fechas viejas del proveedor
-        if "MARTES" in linea.upper() or "LISTA ACTUALIZADA" in linea.upper():
+        # 2. Ignorar fechas viejas o títulos de ingresos del proveedor
+        if "MARTES" in linea.upper() or "NUEVOS INGRESOS" in linea.upper():
             continue
             
-        # Reemplazos estéticos
-        l = linea.replace('‼️', '!!').replace('🔺', '•').replace('🔻', '•').replace('📲', '•')
-        lineas_limpias.append(l.strip())
+        # 3. Limpieza de caracteres raros (cuadraditos)
+        l = linea.strip()
+        if not l: continue
+        
+        # Reemplazar emojis rebeldes por puntos elegantes
+        l = re.sub(r'[^\x00-\x7F]+', '• ', l) 
+        lineas_limpias.append(l)
 
-    # Lógica de precios
+    # 4. Sumar comisión
     resultado = []
     for linea in lineas_limpias:
-        # Detecta formatos: "= 800", "- $800", ": 800", " 800$"
         nueva_linea = re.sub(r'([=–\-:\$]\s*\$?\s*)(\d{2,4})', 
                              lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        
-        # Si la línea termina en número sin símbolo (ej: Nokia 106 25)
+        # Si la línea termina en el precio solo (ej: Nokia 106 21)
         if nueva_linea == linea:
             nueva_linea = re.sub(r'(\s)(\d{2,4})$', 
                                  lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        
         resultado.append(nueva_linea)
-    return [l for l in resultado if l] # Quitar líneas vacías
+        
+    return resultado
 
-def dibujar_pagina(lineas, titulo_pag):
+def dibujar_imagen(lineas, titulo_pag):
     fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+    ancho = 1400  # Más ancho para evitar cortes
+    margen_top = 280
+    espacio_linea = 22
+    alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 120
     
-    # Configuración de tamaño (Ancho 1200 para que no se corte)
-    ancho = 1200
-    margen_superior = 250
-    espaciado = 25
-    alto_dinamico = margen_superior + (len(lineas) * (font_size + espaciado)) + 150
-    
-    img = Image.new('RGB', (ancho, int(alto_dinamico)), color="#FFFFFF")
+    img = Image.new('RGB', (ancho, int(alto)), color="#FFFFFF")
     draw = ImageDraw.Draw(img)
     
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-        font_logo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 55)
+        font_logo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
     except:
         font = ImageFont.load_default()
         font_logo = ImageFont.load_default()
 
-    # --- ENCABEZADO ESTILO MARCAS ---
-    draw.rectangle([0, 0, ancho, 220], fill="#f8f9fa")
-    marcas_texto = "🍎 APPLE  |  📱 SAMSUNG  |  🔘 MOTOROLA  |  🟠 XIAOMI"
-    draw.text((60, 50), marcas_texto, font=font_logo, fill="#333333")
-    draw.text((60, 140), f"📅 PRECIOS ACTUALIZADOS: {fecha_hoy} ({titulo_pag})", font=font, fill="#555555")
-    draw.line([(60, 210), (ancho-60, 210)], fill="#000000", width=3)
+    # --- ENCABEZADO DE MARCAS (Dibujado) ---
+    draw.rectangle([0, 0, ancho, 240], fill="#1a1a1a") # Fondo oscuro para el logo
+    
+    # Dibujamos los nombres de las marcas con círculos de colores
+    colores = {"APPLE": "#FFFFFF", "SAMSUNG": "#1428a0", "MOTOROLA": "#00d5ff", "XIAOMI": "#ff6700"}
+    x_pos = 70
+    for marca, color in colores.items():
+        draw.ellipse([x_pos-10, 60, x_pos+40, 110], fill=color)
+        draw.text((x_pos+50, 60), marca, font=font_logo, fill="#FFFFFF")
+        x_pos += 320
 
-    y = margen_superior
+    # Subtítulo con fecha
+    draw.text((70, 160), f"📅 PRECIOS ACTUALIZADOS: {fecha_hoy} | {titulo_pag}", font=font, fill="#aaaaaa")
+
+    # --- DIBUJAR LISTADO ---
+    y = margen_top
     for line in lineas:
-        # Si la línea es un título (tiene asteriscos), la ponemos en azul
-        color_texto = "#000000"
-        if "*" in line: color_texto = "#0056b3"
+        # Si la línea es un título (tiene asteriscos)
+        color_txt = "#000000"
+        if "*" in line:
+            color_txt = "#0056b3" # Títulos en Azul
+            draw.text((70, y), line, font=font, fill=color_txt)
+        else:
+            draw.text((80, y), line, font=font, fill=color_txt)
         
-        draw.text((80, y), line, font=font, fill=color_texto)
-        y += font_size + espaciado
-        
+        y += font_size + espacio_linea
+            
     return img
 
-if st.button("🚀 Generar Todo"):
+if st.button("🚀 GENERAR IMAGEN FINAL"):
     if input_text:
-        todas_las_lineas = procesar_universal(input_text, comision)
+        lineas_finales = procesar_universal(input_text, comision)
         
-        # Dividir en páginas según la configuración
-        paginas = [todas_las_lineas[i:i + lineas_por_pagina] for i in range(0, len(todas_las_lineas), lineas_por_pagina)]
+        # Partición en páginas
+        paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
         
-        for idx, lineas_pag in enumerate(paginas):
-            nombre_pag = f"PARTE {idx + 1}"
-            img_final = dibujar_pagina(lineas_pag, nombre_pag)
-            
-            st.subheader(f"🖼️ {nombre_pag}")
-            st.image(img_final)
+        for idx, pag in enumerate(paginas):
+            txt_pag = f"PARTE {idx+1}"
+            img_res = dibujar_imagen(pag, txt_pag)
+            st.image(img_res)
             
             buf = io.BytesIO()
-            img_final.save(buf, format="PNG")
-            st.download_button(f"📥 Descargar {nombre_pag}", buf.getvalue(), f"lista_p{idx+1}.png")
+            img_res.save(buf, format="PNG")
+            st.download_button(f"📥 Descargar {txt_pag}", buf.getvalue(), f"lista_p{idx+1}.png")
     else:
-        st.warning("Pega las listas para comenzar.")
+        st.warning("Pega la lista antes de empezar.")
