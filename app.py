@@ -7,18 +7,20 @@ import pytz
 
 st.set_page_config(page_title="Generador Premium Final", layout="wide")
 
-# --- MEMORIA DE SESIÓN ---
 if 'lista_imagenes' not in st.session_state:
     st.session_state.lista_imagenes = []
+
+# --- CONFIGURACIÓN DE VISIBILIDAD ---
+ANCHO_LIENZO = 1200 
+TAMANO_FUENTE_MARCAS = 65  # Mucho más grande
+TAMANO_FUENTE_LISTA = 48   # Mucho más grande
 
 # --- BARRA LATERAL ---
 st.sidebar.header("🎨 Ajustes de Imagen")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
-ancho_fijo = 1200 # Ancho estándar para evitar desconfiguraciones
-font_size_global = st.sidebar.slider("Tamaño de letra", 30, 50, 40)
-lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 60, 30)
+lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 60, 25)
 
-st.title("📱 Generador Pro: Diseño Corregido")
+st.title("📱 Generador Pro: Alta Visibilidad")
 input_text = st.text_area("Pega tus listas aquí:", height=250)
 
 def procesar_texto(texto, incremento):
@@ -28,59 +30,61 @@ def procesar_texto(texto, incremento):
     lineas_limpias = []
     for linea in texto.split('\n'):
         if not linea.strip() or any(p in linea.upper() for p in prohibidas): continue
-        # Sumar comisión
         l = re.sub(r'([=–\-:\$]\s*\$?\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
         if l == linea: l = re.sub(r'(\s)(\d{2,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
         lineas_limpias.append(l.strip())
     return lineas_limpias
 
 def dibujar_imagen(lineas, titulo_pag, es_primera):
-    # Zona Horaria
-    try: zona = pytz.timezone('America/Argentina/Buenos_Aires'); fecha = datetime.now(zona).strftime("%d/%m/%Y")
-    except: fecha = datetime.now().strftime("%d/%m/%Y")
+    zona = pytz.timezone('America/Argentina/Buenos_Aires')
+    fecha = datetime.now(zona).strftime("%d/%m/%Y")
     
-    # --- CÁLCULO DE ESPACIOS ---
-    h_header = 250
-    h_linea = font_size_global + 25
+    h_header = 320 # Más espacio para logos grandes
+    h_linea = TAMANO_FUENTE_LISTA + 35
     alto_total = h_header + (len(lineas) * h_linea) + 100
     
-    img = Image.new('RGB', (ancho_fijo, int(alto_total)), color="#FFFFFF")
+    img = Image.new('RGB', (ANCHO_LIENZO, int(alto_total)), color="#FFFFFF")
     draw = ImageDraw.Draw(img)
     
-    # --- FUENTES ---
     try:
-        f_bold = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size_global)
-        f_logo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 45)
+        f_lista = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", TAMANO_FUENTE_LISTA)
+        f_logo_txt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", TAMANO_FUENTE_MARCAS)
+        f_fecha = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 45)
     except:
-        f_bold = ImageFont.load_default(); f_logo = ImageFont.load_default()
+        f_lista = ImageFont.load_default(); f_logo_txt = ImageFont.load_default(); f_fecha = ImageFont.load_default()
 
     # --- ENCABEZADO NEGRO ---
-    draw.rectangle([0, 0, ancho_fijo, h_header], fill="#000000")
+    draw.rectangle([0, 0, ANCHO_LIENZO, h_header], fill="#000000")
     
-    # Dibujo de Logos (Posiciones fijas para que no se muevan)
+    # Logos e íconos más grandes
+    y_logo = 60
+    radio = 35 # Radio de los círculos/cuadrados
+    
     # Apple
-    draw.ellipse([50, 40, 100, 90], fill="#FFFFFF")
-    draw.text((110, 45), "APPLE", font=f_logo, fill="#FFFFFF")
+    draw.ellipse([50-radio, y_logo-radio+40, 50+radio, y_logo+radio+40], fill="#FFFFFF")
+    draw.text((100, y_logo+10), "APPLE", font=f_logo_txt, fill="#FFFFFF")
     # Samsung
-    draw.rectangle([320, 40, 380, 90], fill="#1428a0")
-    draw.text((390, 45), "SAMSUNG", font=f_logo, fill="#FFFFFF")
+    draw.rectangle([340-radio, y_logo-radio+40, 340+radio, y_logo+radio+40], fill="#1428a0")
+    draw.text((390, y_logo+10), "SAMSUNG", font=f_logo_txt, fill="#FFFFFF")
     # Motorola
-    draw.ellipse([650, 40, 700, 90], outline="#00d5ff", width=5)
-    draw.text((710, 45), "MOTOROLA", font=f_logo, fill="#FFFFFF")
+    draw.ellipse([680-radio, y_logo-radio+40, 680+radio, y_logo+radio+40], outline="#00d5ff", width=8)
+    draw.text((730, y_logo+10), "MOTOROLA", font=f_logo_txt, fill="#FFFFFF")
     # Xiaomi
-    draw.rectangle([1000, 40, 1050, 90], fill="#ff6700")
-    draw.text((1060, 45), "XIAOMI", font=f_logo, fill="#FFFFFF")
+    draw.rectangle([1020-radio, y_logo-radio+40, 1020+radio, y_logo+radio+40], fill="#ff6700")
+    draw.text((1070, y_logo+10), "XIAOMI", font=f_logo_txt, fill="#FFFFFF")
 
     # Subtítulo (Fecha o Continuación)
     sub = f"📅 ACTUALIZADO: {fecha} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO DE PRODUCTOS | {titulo_pag}"
-    draw.text((50, 140), sub, font=f_bold, fill="#AAAAAA")
-    draw.line([(50, 200), (ancho_fijo-50, 200)], fill="#333333", width=3)
+    draw.text((50, 210), sub, font=f_fecha, fill="#AAAAAA")
+    draw.line([(50, 280), (ANCHO_LIENZO-50, 280)], fill="#333333", width=4)
 
     # --- LISTADO ---
-    y = h_header + 40
+    y = h_header + 50
     for line in lineas:
         color = "#0056b3" if "*" in line else "#000000"
-        draw.text((60, y), line.replace("*", "").replace("-", "•"), font=f_bold, fill=color)
+        # Usamos un punto grande para los productos
+        txt = line.replace("*", "").replace("-", "•")
+        draw.text((60, y), txt, font=f_lista, fill=color)
         y += h_linea
     return img
 
