@@ -5,24 +5,21 @@ import io
 from datetime import datetime
 import pytz 
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Generador Pro Premium", page_icon="📲")
+st.set_page_config(page_title="Generador Premium Final", page_icon="📲", layout="wide")
 
-# Inicializar la memoria (session_state) si no existe
-if 'imagenes_generadas' not in st.session_state:
-    st.session_state.imagenes_generadas = []
+# --- MEMORIA DE SESIÓN ---
+if 'lista_imagenes' not in st.session_state:
+    st.session_state.lista_imagenes = []
 
-# --- AJUSTES LATERALES ---
+# --- BARRA LATERAL ---
 st.sidebar.header("🎨 Ajustes de Imagen")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
 ancho_img = st.sidebar.slider("Ancho de imagen", 1200, 1600, 1500)
 font_size = st.sidebar.slider("Tamaño de letra", 25, 45, 34)
 lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 60, 35)
 
-input_text = st.text_area("Pega tus listas aquí:", height=300)
-
-# [Aquí van tus funciones procesar_texto y dibujar_imagen que ya tenemos]
-# (Asegúrate de mantenerlas igual, solo cambiaremos la lógica del botón)
+st.title("📲 Generador de Listas Premium")
+input_text = st.text_area("Pega tus listas aquí:", height=250)
 
 def procesar_texto(texto, incremento):
     palabras_prohibidas = [
@@ -57,6 +54,7 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
     margen_top = 240
     espacio_linea = 22
     alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 120
+    
     img = Image.new('RGB', (ancho_img, int(alto)), color="#FFFFFF")
     draw = ImageDraw.Draw(img)
     
@@ -64,15 +62,20 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
         font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
         font_logo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 48)
     except:
-        font = ImageFont.load_default()
-        font_logo = ImageFont.load_default()
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            font_logo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+        except:
+            font = ImageFont.load_default()
+            font_logo = ImageFont.load_default()
 
+    # Encabezado Negro Premium
     draw.rectangle([0, 0, ancho_img, 200], fill="#000000")
-    marcas = [("🍎 APPLE", 60), ("🔵 SAMSUNG", 450), ("📱 MOTOROLA", 880), ("🟠 XIAOMI", 1250)]
+    marcas = [("🍎 APPLE", 60), ("🔵 SAMSUNG", 400), ("📱 MOTOROLA", 800), ("🟠 XIAOMI", 1200)]
     for texto_m, x_m in marcas:
         draw.text((x_m, 50), texto_m, font=font_logo, fill="#FFFFFF")
 
-    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO PRODUCTOS | {titulo_pag}"
+    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO DE PRODUCTOS | {titulo_pag}"
     draw.text((60, 130), info_header, font=font, fill="#AAAAAA")
 
     y = margen_top
@@ -86,47 +89,45 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
         y += font_size + espacio_linea
     return img
 
-# --- LÓGICA DE BOTONES CON MEMORIA ---
-col_btn1, col_btn2 = st.columns(2)
-
-with col_btn1:
-    if st.button("🚀 GENERAR IMÁGENES"):
+# --- BOTONES PRINCIPALES ---
+col_b1, col_b2 = st.columns(2)
+with col_b1:
+    if st.button("🚀 GENERAR LISTA LIMPIA"):
         if input_text:
             lineas_finales = procesar_texto(input_text, comision)
             paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
             
-            # Guardamos las imágenes en la memoria de la sesión
-            st.session_state.imagenes_generadas = []
+            st.session_state.lista_imagenes = [] # Reiniciar memoria
             for idx, pag in enumerate(paginas):
                 txt_pag = f"PARTE {idx+1}"
                 img_res = dibujar_imagen(pag, txt_pag, es_primera=(idx==0))
                 
-                # Convertir a bytes para que estén listos para descargar
+                # Guardar en memoria
                 buf = io.BytesIO()
                 img_res.save(buf, format="PNG")
-                st.session_state.imagenes_generadas.append({
+                st.session_state.lista_imagenes.append({
                     "titulo": txt_pag,
                     "bytes": buf.getvalue(),
-                    "pil_img": img_res
+                    "pil": img_res
                 })
         else:
             st.error("Pega la lista primero.")
 
-with col_btn2:
-    if st.button("🗑️ LIMPIAR TODO"):
-        st.session_state.imagenes_generadas = []
+with col_b2:
+    if st.button("🗑️ NUEVA LISTA"):
+        st.session_state.lista_imagenes = []
         st.rerun()
 
-# --- MOSTRAR RESULTADOS DESDE LA MEMORIA ---
-if st.session_state.imagenes_generadas:
-    for idx, item in enumerate(st.session_state.imagenes_generadas):
+# --- MOSTRAR RESULTADOS (PERSISTENTES) ---
+if st.session_state.lista_imagenes:
+    for idx, item in enumerate(st.session_state.lista_imagenes):
         st.divider()
         st.subheader(f"🖼️ {item['titulo']}")
-        st.image(item['pil_img'])
+        st.image(item['pil'], use_container_width=True) # Mostrar bien en pantalla
         st.download_button(
             label=f"📥 Descargar {item['titulo']}",
             data=item['bytes'],
-            file_name=f"lista_parte_{idx+1}.png",
+            file_name=f"lista_p{idx+1}.png",
             mime="image/png",
-            key=f"btn_dl_{idx}" # Clave única para que no se confunda
+            key=f"dl_{idx}"
         )
