@@ -34,15 +34,20 @@ def procesar_texto(texto, incremento):
         if any(p.upper() in upper_l for p in palabras_prohibidas): continue
         l = linea.strip()
         if not l or len(l) < 2: continue
-        lineas_limpias.append(l)
-
-    resultado = []
-    for linea in lineas_limpias:
-        nueva_linea = re.sub(r'([=–\-:\$]\s*\$?\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        if nueva_linea == linea:
-            nueva_linea = re.sub(r'(\s)(\d{2,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        resultado.append(nueva_linea)
-    return resultado
+        
+        # --- LÓGICA ANT-ERROR DE BATERÍA ---
+        # 1. Buscamos primero si hay un signo $ (Ej: $680 -> $730)
+        nueva_linea = re.sub(r'(\$\s*)(\d{2,4})', 
+                             lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
+        
+        # 2. Si no cambió, buscamos un número de 3+ cifras AL FINAL de la línea (Ej: - 680)
+        # Esto ignora los (85-100%) porque el 100 no está al final, está el ")"
+        if nueva_linea == l:
+            nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', 
+                                 lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
+        
+        lineas_limpias.append(nueva_linea)
+    return lineas_limpias
 
 def dibujar_imagen(lineas, titulo_pag, es_primera):
     try:
@@ -62,12 +67,8 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
         font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
         font_logo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 48)
     except:
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            font_logo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
-        except:
-            font = ImageFont.load_default()
-            font_logo = ImageFont.load_default()
+        font = ImageFont.load_default()
+        font_logo = ImageFont.load_default()
 
     # Encabezado Negro Premium
     draw.rectangle([0, 0, ancho_img, 200], fill="#000000")
@@ -75,7 +76,7 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
     for texto_m, x_m in marcas:
         draw.text((x_m, 50), texto_m, font=font_logo, fill="#FFFFFF")
 
-    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO DE PRODUCTOS | {titulo_pag}"
+    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO | {titulo_pag}"
     draw.text((60, 130), info_header, font=font, fill="#AAAAAA")
 
     y = margen_top
@@ -97,12 +98,11 @@ with col_b1:
             lineas_finales = procesar_texto(input_text, comision)
             paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
             
-            st.session_state.lista_imagenes = [] # Reiniciar memoria
+            st.session_state.lista_imagenes = [] 
             for idx, pag in enumerate(paginas):
                 txt_pag = f"PARTE {idx+1}"
                 img_res = dibujar_imagen(pag, txt_pag, es_primera=(idx==0))
                 
-                # Guardar en memoria
                 buf = io.BytesIO()
                 img_res.save(buf, format="PNG")
                 st.session_state.lista_imagenes.append({
@@ -122,8 +122,7 @@ with col_b2:
 if st.session_state.lista_imagenes:
     for idx, item in enumerate(st.session_state.lista_imagenes):
         st.divider()
-        st.subheader(f"🖼️ {item['titulo']}")
-        st.image(item['pil'], use_container_width=True) # Mostrar bien en pantalla
+        st.image(item['pil'], use_container_width=True)
         st.download_button(
             label=f"📥 Descargar {item['titulo']}",
             data=item['bytes'],
