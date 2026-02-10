@@ -66,7 +66,7 @@ if st.button("🚀 GENERAR IMAGEN FINAL"):
             banner_res = Image.new('RGB', (ancho_hoja, h_banner), color="white")
 
         # ESPACIADO TOTALMENTE APRETADO
-        interlineado = 5 
+        interlineado = 1 
         alto_total = h_banner + (len(datos) * (font_size + interlineado)) + 60
         
         img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="white")
