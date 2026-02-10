@@ -2,6 +2,7 @@ import streamlit as st
 import re
 from PIL import Image, ImageDraw, ImageFont
 import io
+from datetime import datetime  # <-- Nueva librería para la fecha
 
 st.set_page_config(page_title="Generador Pro Premium", layout="wide")
 
@@ -24,7 +25,10 @@ input_text = st.text_area("2. Pega tu lista aquí:", height=250)
 
 def procesar_lista_estilo_nuevo(texto, plus):
     lineas_finales = []
-    # Filtro de basura mejorado
+    # Agregamos la fecha automática al principio
+    fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+    lineas_finales.append(f"LISTA ACTUALIZADA ({fecha_hoy})")
+    
     basura = ["garantía", "11 - 18hs", "nüñez", "lunes a viernes", "encomiendas", "usd/pesos", "actualizada"]
     raw_lines = texto.split('\n')
     
@@ -33,7 +37,6 @@ def procesar_lista_estilo_nuevo(texto, plus):
         if not l or any(b in l.lower() for b in basura) or "———" in l:
             continue
         
-        # Lógica de unir colores/detalles a la misma línea
         if (l.startswith("-") or l.startswith("⁠-") or l.startswith("•")) and lineas_finales:
             det_limpio = l.replace("-", "").replace("•", "").strip()
             if " - " in lineas_finales[-1]:
@@ -42,30 +45,26 @@ def procesar_lista_estilo_nuevo(texto, plus):
                 lineas_finales[-1] += f" - {det_limpio}"
             continue
 
-        # Sumar comisión solo a precios reales
         nueva = l
         if "$" in l or "=" in l:
             nueva = re.sub(r'(\d{3,4})', lambda m: str(int(m.group(1)) + plus) if int(m.group(1)) > 150 else m.group(1), l)
         
-        # Limpieza de iconos para el texto final
         nueva = nueva.replace("*", "").replace("🔺", "").replace("🔻", "").replace("❕", "").strip()
         lineas_finales.append(nueva)
             
     return lineas_finales
 
 def dibujar_compacto(lineas):
-    # Banner estilo encabezado
     if st.session_state.banner_pro:
         banner = st.session_state.banner_pro.copy()
         w_percent = (ancho_hoja / float(banner.size[0]))
-        h_size = 220 # Altura fija para que sea elegante
+        h_size = 220 
         banner = banner.resize((ancho_hoja, int(banner.size[1] * w_percent)), Image.Resampling.LANCZOS)
         banner = banner.crop((0, 0, ancho_hoja, h_size))
     else:
         h_size = 120
         banner = Image.new('RGB', (ancho_hoja, h_size), color="#000000")
 
-    # ESPACIADO MÍNIMO (Como en tu imagen de referencia)
     interlineado = 8 
     alto_total = h_size + (len(lineas) * (font_size_main + interlineado)) + 60
     img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="#FFFFFF")
@@ -79,9 +78,13 @@ def dibujar_compacto(lineas):
         font_bold = font_info = ImageFont.load_default()
 
     y = h_size + 25
-    for line in lineas:
-        # Colores: Azul para títulos, Negro para el resto
-        if "INGRESO" in line or "TESTERS" in line or "IPHONE" in line.upper():
+    for i, line in enumerate(lineas):
+        # La primera línea (Fecha) va en un gris profesional o azul
+        if i == 0:
+            color = "#777777"
+            fnt = font_info
+            txt = line
+        elif "INGRESO" in line or "TESTERS" in line or "IPHONE" in line.upper():
             color = "#004a99"
             fnt = font_bold
             txt = line.upper()
