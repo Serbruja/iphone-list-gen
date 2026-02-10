@@ -5,103 +5,128 @@ import io
 from datetime import datetime
 import pytz 
 
-st.set_page_config(page_title="Generador Premium", layout="wide")
+st.set_page_config(page_title="Generador Premium Final", page_icon="📲", layout="wide")
 
-# --- AJUSTES DE DISEÑO FIJOS (Los que funcionaban) ---
-ANCHO_IMG = 1400
-FONT_SIZE_LISTA = 40
-FONT_SIZE_LOGOS = 50
+# --- MEMORIA DE SESIÓN (Tu lógica original) ---
+if 'lista_imagenes' not in st.session_state:
+    st.session_state.lista_imagenes = []
 
-# --- BARRA LATERAL ---
-st.sidebar.header("🎨 Ajustes")
+# --- BARRA LATERAL (Tus ajustes originales) ---
+st.sidebar.header("🎨 Ajustes de Imagen")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
-lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 50, 30)
+ancho_img = st.sidebar.slider("Ancho de imagen", 1200, 1600, 1500)
+font_size = st.sidebar.slider("Tamaño de letra", 25, 45, 34)
+lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 60, 35)
 
-st.title("📱 Generador de Listas Premium")
+st.title("📲 Generador de Listas Premium")
 input_text = st.text_area("Pega tus listas aquí:", height=250)
 
 def procesar_texto(texto, incremento):
-    # Filtros que pediste
-    prohibidas = ["NOKIA", "LUNES A VIERNES", "USD/PESOS/USDT", "BILLETES", "CARGADOR", "CABA", "MAL ESTADO"]
+    palabras_prohibidas = [
+        "⏰", "📍", "CABA", "Condiciones", "billetes", "dolares", "CARA CHICA",
+        "No se aceptan", "CARGADOR", "cargador", "encomiendas", "Consultar",
+        "MARTES", "LISTA ACTUALIZADA", "ACTUALIZO", "¡Nuevos ingresos",
+        "Lunes a viernes", "USD/PESOS/USDT", "solo para completar", "mal estado", "NOKIA"
+    ]
     lineas_limpias = []
     for linea in texto.split('\n'):
-        if not linea.strip() or any(p in linea.upper() for p in prohibidas):
-            continue
-        # Sumar comisión
-        l = re.sub(r'([=–\-:\$]\s*\$?\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        if l == linea:
-            l = re.sub(r'(\s)(\d{2,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
-        lineas_limpias.append(l.strip())
-    return lineas_limpias
+        upper_l = linea.upper()
+        if any(p.upper() in upper_l for p in palabras_prohibidas): continue
+        l = linea.strip()
+        if not l or len(l) < 2: continue
+        lineas_limpias.append(l)
+
+    resultado = []
+    for linea in lineas_limpias:
+        # --- ESTA ES LA ÚNICA PARTE QUE CAMBIAMOS ---
+        # Buscamos números que tengan el "$" o que estén al final de la línea.
+        # Esto ignora el 100 de (85-100%) porque después tiene un "%" o un ")"
+        nueva_linea = re.sub(r'(\$\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
+        
+        if nueva_linea == linea:
+            nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
+        resultado.append(nueva_linea)
+    return resultado
 
 def dibujar_imagen(lineas, titulo_pag, es_primera):
-    # Fecha Argentina
     try:
-        zona = pytz.timezone('America/Argentina/Buenos_Aires')
-        fecha = datetime.now(zona).strftime("%d/%m/%Y")
+        zona_horaria = pytz.timezone('America/Argentina/Buenos_Aires')
+        fecha_hoy = datetime.now(zona_horaria).strftime("%d/%m/%Y")
     except:
-        fecha = datetime.now().strftime("%d/%m/%Y")
+        fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     
-    # Espaciado dinámico
-    margen_top = 250
-    alto_total = margen_top + (len(lineas) * (FONT_SIZE_LISTA + 25)) + 80
+    # --- PROPORCIONES DE TU CÓDIGO ORIGINAL ---
+    margen_top = 240
+    espacio_linea = 22
+    alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 120
     
-    img = Image.new('RGB', (ANCHO_IMG, int(alto_total)), color="#FFFFFF")
+    img = Image.new('RGB', (ancho_img, int(alto)), color="#FFFFFF")
     draw = ImageDraw.Draw(img)
     
-    # Cargar fuentes (Sistema Linux de Streamlit)
     try:
-        f_bold = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", FONT_SIZE_LISTA)
-        f_logos = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", FONT_SIZE_LOGOS)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
+        font_logo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 48)
     except:
-        f_bold = ImageFont.load_default()
-        f_logos = ImageFont.load_default()
+        font = ImageFont.load_default()
+        font_logo = ImageFont.load_default()
 
-    # ENCABEZADO NEGRO (Diseño que te gustaba)
-    draw.rectangle([0, 0, ANCHO_IMG, 200], fill="#000000")
-    
-    # Logos dibujados para que no fallen
-    # Apple
-    draw.ellipse([60, 50, 110, 100], fill="#FFFFFF")
-    draw.text((125, 50), "APPLE", font=f_logos, fill="#FFFFFF")
-    # Samsung
-    draw.rectangle([400, 50, 460, 100], fill="#1428a0")
-    draw.text((475, 50), "SAMSUNG", font=f_logos, fill="#FFFFFF")
-    # Motorola
-    draw.ellipse([820, 50, 870, 100], outline="#00d5ff", width=6)
-    draw.text((885, 50), "MOTOROLA", font=f_logos, fill="#FFFFFF")
-    # Xiaomi
-    draw.rectangle([1180, 50, 1230, 100], fill="#ff6700")
-    draw.text((1245, 50), "XIAOMI", font=f_logos, fill="#FFFFFF")
+    # --- ENCABEZADO NEGRO (Tu diseño original) ---
+    draw.rectangle([0, 0, ancho_img, 200], fill="#000000")
+    marcas = [("🍎 APPLE", 60), ("🔵 SAMSUNG", 400), ("📱 MOTOROLA", 800), ("🟠 XIAOMI", 1200)]
+    for texto_m, x_m in marcas:
+        draw.text((x_m, 50), texto_m, font=font_logo, fill="#FFFFFF")
 
-    # Texto de fecha/actualización (Solo 1era hoja)
-    if es_primera:
-        info = f"📅 ACTUALIZADO: {fecha} | {titulo_pag}"
-    else:
-        info = f"🚀 CATÁLOGO DE PRODUCTOS | {titulo_pag}"
-    draw.text((65, 135), info, font=f_bold, fill="#AAAAAA")
+    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO | {titulo_pag}"
+    draw.text((60, 130), info_header, font=font, fill="#AAAAAA")
 
-    # LISTADO
     y = margen_top
     for line in lineas:
-        color = "#0056b3" if "*" in line else "#000000"
-        txt = line.replace("*", "").replace("-", "•")
-        draw.text((70, y), txt, font=f_bold, fill=color)
-        y += FONT_SIZE_LISTA + 25
-        
+        color_txt = "#000000"
+        if "*" in line:
+            color_txt = "#0056b3"
+            draw.text((60, y), line.replace("*", ""), font=font, fill=color_txt)
+        else:
+            draw.text((80, y), line.replace("-", "•"), font=font, fill=color_txt)
+        y += font_size + espacio_linea
     return img
 
-# --- GENERACIÓN ---
-if st.button("🚀 GENERAR LISTA"):
-    if input_text:
-        lineas = procesar_texto(input_text, comision)
-        pags = [lineas[i:i + lineas_por_pag] for i in range(0, len(lineas), lineas_por_pag)]
-        
-        for i, p in enumerate(pags):
-            img = dibujar_imagen(p, f"PARTE {i+1}", i==0)
-            st.image(img)
+# --- BOTONES Y PERSISTENCIA (Tu código exacto) ---
+col_b1, col_b2 = st.columns(2)
+with col_b1:
+    if st.button("🚀 GENERAR LISTA LIMPIA"):
+        if input_text:
+            lineas_finales = procesar_texto(input_text, comision)
+            paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
             
-            # Descarga
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            st.download_button(f"📥 Descargar PARTE {i+1}", buf.getvalue(), f"lista_p{i+1}.png", "image/png", key=f"d{i}")
+            st.session_state.lista_imagenes = [] 
+            for idx, pag in enumerate(paginas):
+                txt_pag = f"PARTE {idx+1}"
+                img_res = dibujar_imagen(pag, txt_pag, es_primera=(idx==0))
+                
+                buf = io.BytesIO()
+                img_res.save(buf, format="PNG")
+                st.session_state.lista_imagenes.append({
+                    "titulo": txt_pag,
+                    "bytes": buf.getvalue(),
+                    "pil": img_res
+                })
+        else:
+            st.error("Pega la lista primero.")
+
+with col_b2:
+    if st.button("🗑️ NUEVA LISTA"):
+        st.session_state.lista_imagenes = []
+        st.rerun()
+
+if st.session_state.lista_imagenes:
+    for idx, item in enumerate(st.session_state.lista_imagenes):
+        st.divider()
+        st.subheader(f"🖼️ {item['titulo']}")
+        st.image(item['pil'], use_container_width=True)
+        st.download_button(
+            label=f"📥 Descargar {item['titulo']}",
+            data=item['bytes'],
+            file_name=f"lista_p{idx+1}.png",
+            mime="image/png",
+            key=f"dl_{idx}"
+        )
