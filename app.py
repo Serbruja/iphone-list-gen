@@ -4,18 +4,16 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 from datetime import datetime
 
-st.set_page_config(page_title="Generador Ultra Visible", layout="wide")
-
-if 'banner_pro' not in st.session_state:
-    st.session_state.banner_pro = None
+st.set_page_config(page_title="Generador Letra Gigante", layout="wide")
 
 # --- PANEL LATERAL ---
-st.sidebar.header("🚀 Ajustes de Visibilidad")
+st.sidebar.header("📏 Ajuste de Tamaño")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
-ancho_hoja = 700 # Ancho fijo para optimizar el tamaño de letra
-font_size_main = st.sidebar.slider("Tamaño de letra", 45, 85, 60)
+# Reducimos el ancho para que la letra parezca más grande al estirarse en el celu
+ancho_hoja = 600 
+font_size_main = st.sidebar.slider("Tamaño de letra", 50, 90, 70)
 
-st.title("📲 Generador Especial para Estados")
+st.title("📲 Generador de Estados (Visibilidad Máxima)")
 
 uploaded_file = st.file_uploader("1. Sube tu banner", type=["jpg", "png"])
 if uploaded_file:
@@ -23,26 +21,21 @@ if uploaded_file:
 
 input_text = st.text_area("2. Pega tu lista:", height=200)
 
-def procesar_lista_ultra(texto, plus):
+def procesar_lista_compacta(texto, plus):
     lineas_finales = []
-    fecha_hoy = datetime.now().strftime("%d/%m/%Y")
-    lineas_finales.append(f"LISTA ACTUALIZADA: {fecha_hoy}")
+    basura = ["garantía", "11 - 18hs", "nüñez", "lunes a viernes", "encomiendas", "usd/pesos", "actualizada", "———"]
     
-    basura = ["garantía", "11 - 18hs", "nüñez", "lunes a viernes", "encomiendas", "usd/pesos", "actualizada"]
     raw_lines = texto.split('\n')
-    
     for i in range(len(raw_lines)):
         l = raw_lines[i].strip()
-        if not l or any(b in l.lower() for b in basura) or "———" in l:
+        if not l or any(b in l.lower() for b in basura):
             continue
         
-        # Unir colores en la misma línea para máxima compresión
-        if (l.startswith("-") or l.startswith("⁠-") or l.startswith("•")) and lineas_finales:
-            det_limpio = l.replace("-", "").replace("•", "").strip()
-            if " - " in lineas_finales[-1]:
-                lineas_finales[-1] += f", {det_limpio}"
-            else:
-                lineas_finales[-1] += f" - {det_limpio}"
+        # Unir colores y grados a la línea del modelo para ahorrar espacio
+        if (l.startswith("-") or l.startswith("⁠-") or "Grado" in l or "🔋" in l) and lineas_finales:
+            limpio = l.replace("-", "").replace("🔋", "").strip()
+            # Si es grado o batería, lo ponemos entre paréntesis al final
+            lineas_finales[-1] += f" ({limpio})"
             continue
 
         nueva = l
@@ -54,61 +47,54 @@ def procesar_lista_ultra(texto, plus):
             
     return lineas_finales
 
-def dibujar_ultra(lineas):
-    # Banner corregido
-    if st.session_state.banner_pro:
+def dibujar_gigante(lineas):
+    # Banner súper finito (solo como detalle arriba)
+    h_banner = 120 
+    if 'banner_pro' in st.session_state and st.session_state.banner_pro:
         banner = st.session_state.banner_pro.copy()
         w_percent = (ancho_hoja / float(banner.size[0]))
-        h_size = 200 
         banner = banner.resize((ancho_hoja, int(banner.size[1] * w_percent)), Image.Resampling.LANCZOS)
-        # CORRECCIÓN AQUÍ: ancho_hoja (sin guiones extra)
-        banner = banner.crop((0, 0, ancho_hoja, h_size))
+        banner = banner.crop((0, 0, ancho_hoja, h_banner))
     else:
-        h_size = 100
-        banner = Image.new('RGB', (ancho_hoja, h_size), color="#111111")
+        banner = Image.new('RGB', (ancho_hoja, h_banner), color="#111111")
 
-    # Interlineado mínimo para que la imagen no sea larga
-    interlineado = 8 
-    alto_total = h_size + (len(lineas) * (font_size_main + interlineado)) + 60
+    # INTERLINEADO CASI CERO
+    interlineado = 4 
+    alto_total = h_banner + (len(lineas) * (font_size_main + interlineado)) + 40
     
-    # Fondo negro para contraste máximo
     img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="#000000")
     img.paste(banner, (0, 0))
     
     draw = ImageDraw.Draw(img)
     try:
-        font_bold = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size_main)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", int(font_size_main*0.7))
+        # Usamos Bold para TODO
+        font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size_main)
+        font_fecha = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 30)
     except:
-        font_bold = font_small = ImageFont.load_default()
+        font = font_fecha = ImageFont.load_default()
 
-    y = h_size + 20
-    for i, line in enumerate(lineas):
-        if i == 0: # Fecha
-            color = "#FFD700" 
-            draw.text((25, y), line, font=font_small, fill=color)
-            y += int(font_size_main*0.7) + 10
-        elif "INGRESO" in line or "TESTERS" in line or "IPHONE" in line.upper():
-            color = "#00D4FF" 
-            draw.text((25, y), line.upper(), font=font_bold, fill=color)
-            y += font_size_main + interlineado + 5
-        elif "🔋" in line or "Grado" in line:
-            color = "#AAAAAA" # Gris claro para info técnica
-            draw.text((25, y), line, font=font_small, fill=color)
-            y += int(font_size_main*0.7) + interlineado
+    # Fecha en una esquina del banner para no ocupar espacio
+    fecha_hoy = datetime.now().strftime("%d/%m")
+    draw.text((ancho_hoja - 120, 10), f"MOD: {fecha_hoy}", font=font_fecha, fill="#FFD700")
+
+    y = h_banner + 15
+    for line in lineas:
+        if "INGRESO" in line or "TESTERS" in line or "IPHONE" in line.upper():
+            color = "#00D4FF" # Celeste
         else:
-            color = "#FFFFFF" 
-            draw.text((25, y), line, font=font_bold, fill=color)
-            y += font_size_main + interlineado
+            color = "#FFFFFF" # Blanco
             
+        draw.text((15, y), line, font=font, fill=color)
+        y += font_size_main + interlineado
+        
     return img
 
-if st.button("🚀 GENERAR LISTA ULTRA VISIBLE"):
+if st.button("🚀 GENERAR LISTA GIGANTE"):
     if input_text:
-        lineas = procesar_lista_ultra(input_text, comision)
-        resultado = dibujar_ultra(lineas)
+        lineas = procesar_lista_compacta(input_text, comision)
+        resultado = dibujar_gigante(lineas)
         buf = io.BytesIO()
         resultado.save(buf, format="PNG")
         st.divider()
         st.image(resultado)
-        st.download_button("📥 Descargar Imagen", buf.getvalue(), "lista_estado.png")
+        st.download_button("📥 DESCARGAR PARA WHATSAPP", buf.getvalue(), "lista_gigante.png")
