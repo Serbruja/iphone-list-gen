@@ -7,11 +7,11 @@ import pytz
 
 st.set_page_config(page_title="Generador Premium Final", page_icon="📲", layout="wide")
 
-# --- MEMORIA DE SESIÓN ---
+# --- MEMORIA DE SESIÓN (Mantenemos tu lógica de persistencia) ---
 if 'lista_imagenes' not in st.session_state:
     st.session_state.lista_imagenes = []
 
-# --- BARRA LATERAL ---
+# --- BARRA LATERAL (Tus valores originales) ---
 st.sidebar.header("🎨 Ajustes de Imagen")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
 ancho_img = st.sidebar.slider("Ancho de imagen", 1200, 1600, 1500)
@@ -35,13 +35,16 @@ def procesar_texto(texto, incremento):
         l = linea.strip()
         if not l or len(l) < 2: continue
         
-        # --- LÓGICA ANT-ERROR DE BATERÍA ---
-        # 1. Buscamos primero si hay un signo $ (Ej: $680 -> $730)
+        # --- FIX DE BATERÍA INTELIGENTE ---
+        # Solo sumamos si el número viene después de un "$" 
+        # o si es un número de 3 cifras que está justo al FINAL de la línea.
+        # Esto protege los "(85-100%)" porque el 100 tiene un "%" o un ")" después.
+        
+        # 1. Buscar precios con "$" (Ej: $680 -> $730)
         nueva_linea = re.sub(r'(\$\s*)(\d{2,4})', 
                              lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
         
-        # 2. Si no cambió, buscamos un número de 3+ cifras AL FINAL de la línea (Ej: - 680)
-        # Esto ignora los (85-100%) porque el 100 no está al final, está el ")"
+        # 2. Si no hubo cambio, buscar número al final de la línea (Ej: = 680)
         if nueva_linea == l:
             nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', 
                                  lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
@@ -56,6 +59,7 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
     except:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     
+    # Mantenemos tus medidas originales para que no se desconfigure el tamaño
     margen_top = 240
     espacio_linea = 22
     alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 120
@@ -70,13 +74,13 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
         font = ImageFont.load_default()
         font_logo = ImageFont.load_default()
 
-    # Encabezado Negro Premium
+    # Encabezado Negro (Tus marcas originales)
     draw.rectangle([0, 0, ancho_img, 200], fill="#000000")
     marcas = [("🍎 APPLE", 60), ("🔵 SAMSUNG", 400), ("📱 MOTOROLA", 800), ("🟠 XIAOMI", 1200)]
     for texto_m, x_m in marcas:
         draw.text((x_m, 50), texto_m, font=font_logo, fill="#FFFFFF")
 
-    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO | {titulo_pag}"
+    info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CONTINUACIÓN | {titulo_pag}"
     draw.text((60, 130), info_header, font=font, fill="#AAAAAA")
 
     y = margen_top
@@ -90,19 +94,18 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
         y += font_size + espacio_linea
     return img
 
-# --- BOTONES PRINCIPALES ---
+# --- BOTONES Y RENDERIZADO (Tu lógica original) ---
 col_b1, col_b2 = st.columns(2)
 with col_b1:
-    if st.button("🚀 GENERAR LISTA LIMPIA"):
+    if st.button("🚀 GENERAR LISTA"):
         if input_text:
             lineas_finales = procesar_texto(input_text, comision)
             paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
             
-            st.session_state.lista_imagenes = [] 
+            st.session_state.lista_imagenes = []
             for idx, pag in enumerate(paginas):
                 txt_pag = f"PARTE {idx+1}"
                 img_res = dibujar_imagen(pag, txt_pag, es_primera=(idx==0))
-                
                 buf = io.BytesIO()
                 img_res.save(buf, format="PNG")
                 st.session_state.lista_imagenes.append({
@@ -111,14 +114,13 @@ with col_b1:
                     "pil": img_res
                 })
         else:
-            st.error("Pega la lista primero.")
+            st.error("Pega la lista.")
 
 with col_b2:
-    if st.button("🗑️ NUEVA LISTA"):
+    if st.button("🗑️ NUEVA"):
         st.session_state.lista_imagenes = []
         st.rerun()
 
-# --- MOSTRAR RESULTADOS (PERSISTENTES) ---
 if st.session_state.lista_imagenes:
     for idx, item in enumerate(st.session_state.lista_imagenes):
         st.divider()
