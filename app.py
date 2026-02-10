@@ -10,7 +10,7 @@ st.set_page_config(page_title="Lista Oficial WhatsApp", layout="wide")
 st.sidebar.header("📏 Ajustes Finales")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
 font_size = st.sidebar.slider("Tamaño de letra", 30, 80, 55)
-ancho_hoja = 850 
+ancho_hoja = 600 
 
 st.title("📲 Generador de Lista Oficial")
 
@@ -66,7 +66,7 @@ if st.button("🚀 GENERAR IMAGEN FINAL"):
             banner_res = Image.new('RGB', (ancho_hoja, h_banner), color="white")
 
         # ESPACIADO TOTALMENTE APRETADO
-        interlineado = 1 
+        interlineado = 0 
         alto_total = h_banner + (len(datos) * (font_size + interlineado)) + 60
         
         img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="white")
