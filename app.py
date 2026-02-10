@@ -2,26 +2,27 @@ import streamlit as st
 import re
 from PIL import Image, ImageDraw, ImageFont
 import io
-from datetime import datetime
 
-st.set_page_config(page_title="Generador Pro Premium", layout="wide")
+st.set_page_config(page_title="Generador Premium", layout="wide")
 
 if 'lista_imagenes' not in st.session_state:
     st.session_state.lista_imagenes = []
 if 'banner_pro' not in st.session_state:
     st.session_state.banner_pro = None
 
-# --- BARRA LATERAL ---
-st.sidebar.header("🎨 Ajustes de Imagen")
+# --- BARRA LATERAL (Valores optimizados) ---
+st.sidebar.header("🎨 Ajustes de Diseño")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
-ancho_hoja = st.sidebar.slider("Ancho de imagen", 800, 1200, 1000) # Bajamos el ancho base para que la letra resalte
-font_size = st.sidebar.slider("Tamaño de letra", 30, 60, 42) # Aumentamos el rango de letra
-lineas_por_pag = st.sidebar.slider("Líneas por imagen", 15, 60, 30)
+# Bajamos el ancho máximo a 900 para que la letra "llene" más la imagen
+ancho_hoja = st.sidebar.slider("Ancho de imagen", 700, 1000, 850)
+# Subimos el tamaño base de letra
+font_size = st.sidebar.slider("Tamaño de letra", 40, 80, 55)
+lineas_por_pag = st.sidebar.slider("Líneas por imagen", 10, 40, 25)
 
-st.title("📲 Generador Premium Corregido")
+st.title("📲 Generador de Listas Pro")
 
-# 1. SUBIDA DE BANNER
-uploaded_banner = st.file_uploader("Sube tu encabezado (celulares)", type=["jpg", "png"])
+# 1. SUBIDA DE IMAGEN
+uploaded_banner = st.file_uploader("Sube tu encabezado", type=["jpg", "png"])
 if uploaded_banner:
     st.session_state.banner_pro = Image.open(uploaded_banner)
 
@@ -34,7 +35,7 @@ def procesar_texto(texto, incremento):
         l = linea.strip()
         if not l or len(l) < 2: continue
         
-        # Lógica de precio segura (ignora porcentajes de batería)
+        # Filtro de precio seguro
         nueva = re.sub(r'(\$\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
         if nueva == l:
             nueva = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
@@ -42,46 +43,46 @@ def procesar_texto(texto, incremento):
     return resultado
 
 def dibujar_imagen(lineas):
-    espacio_linea = 28
+    # Reducimos el espacio entre líneas para que no se vea tan "estirado"
+    interlineado = 15 
+    alto_texto = len(lineas) * (font_size + interlineado)
     
-    # Calculamos el alto del bloque de texto primero
-    alto_texto = len(lineas) * (font_size + espacio_linea)
-    
-    # Manejo del Banner (Redimensionado para no ser gigante)
+    # Manejo del Banner (Lo limitamos para que no coma toda la pantalla)
     if st.session_state.banner_pro:
         banner = st.session_state.banner_pro.copy()
-        # Forzamos que el banner coincida con el ancho de la hoja
         w_percent = (ancho_hoja / float(banner.size[0]))
         h_size = int((float(banner.size[1]) * float(w_percent)))
+        # Si la imagen es muy alta, la cortamos o limitamos
+        if h_size > 400: h_size = 400 
         banner = banner.resize((ancho_hoja, h_size), Image.Resampling.LANCZOS)
     else:
-        h_size = 150
+        h_size = 120
         banner = Image.new('RGB', (ancho_hoja, h_size), color="#000000")
 
-    alto_total = h_size + alto_texto + 100
+    alto_total = h_size + alto_texto + 80
     img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="#FFFFFF")
     img.paste(banner, (0, 0))
     
     draw = ImageDraw.Draw(img)
     try:
-        # Usamos una fuente que sea legible y gruesa
         font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
     except:
         font = ImageFont.load_default()
 
-    y = h_size + 40
+    y = h_size + 30
     for line in lineas:
-        # Colores y márgenes
+        # Colores según tipo de línea
         color_txt = "#0056b3" if "*" in line or "#" in line else "#000000"
         clean_line = line.replace("*", "").replace("#", "").replace("-", "•")
         
-        draw.text((50, y), clean_line, font=font, fill=color_txt)
-        y += font_size + espacio_linea
+        # Margen izquierdo pequeño para aprovechar el ancho
+        draw.text((40, y), clean_line, font=font, fill=color_txt)
+        y += font_size + interlineado
         
     return img
 
 # --- BOTONES ---
-if st.button("🚀 GENERAR LISTA FINAL"):
+if st.button("🚀 GENERAR LISTA"):
     if input_text:
         lineas_finales = procesar_texto(input_text, comision)
         paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
@@ -93,10 +94,11 @@ if st.button("🚀 GENERAR LISTA FINAL"):
             img_res.save(buf, format="PNG")
             st.session_state.lista_imagenes.append({"pil": img_res, "bytes": buf.getvalue()})
     else:
-        st.error("Falta el texto de la lista.")
+        st.error("Pega el texto.")
 
 # --- RESULTADOS ---
 if st.session_state.lista_imagenes:
     for idx, item in enumerate(st.session_state.lista_imagenes):
+        st.divider()
         st.image(item['pil'], use_container_width=True)
         st.download_button(f"📥 Descargar Parte {idx+1}", item['bytes'], f"lista_{idx+1}.png")
