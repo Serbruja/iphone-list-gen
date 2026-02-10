@@ -7,11 +7,11 @@ import pytz
 
 st.set_page_config(page_title="Generador Premium Final", page_icon="📲", layout="wide")
 
-# --- MEMORIA DE SESIÓN (Tu lógica original) ---
+# --- MEMORIA DE SESIÓN ---
 if 'lista_imagenes' not in st.session_state:
     st.session_state.lista_imagenes = []
 
-# --- BARRA LATERAL (Tus ajustes originales) ---
+# --- BARRA LATERAL ---
 st.sidebar.header("🎨 Ajustes de Imagen")
 comision = st.sidebar.number_input("Comisión (USD)", value=50)
 ancho_img = st.sidebar.slider("Ancho de imagen", 1200, 1600, 1500)
@@ -34,19 +34,22 @@ def procesar_texto(texto, incremento):
         if any(p.upper() in upper_l for p in palabras_prohibidas): continue
         l = linea.strip()
         if not l or len(l) < 2: continue
-        lineas_limpias.append(l)
-
-    resultado = []
-    for linea in lineas_limpias:
-        # --- ESTA ES LA ÚNICA PARTE QUE CAMBIAMOS ---
-        # Buscamos números que tengan el "$" o que estén al final de la línea.
-        # Esto ignora el 100 de (85-100%) porque después tiene un "%" o un ")"
-        nueva_linea = re.sub(r'(\$\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
         
-        if nueva_linea == linea:
-            nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        resultado.append(nueva_linea)
-    return resultado
+        # --- FILTRO INTELIGENTE DE PRECIOS ---
+        # Solo suma si hay un "$" o si el número de 3+ cifras está al final de la línea.
+        # Esto protege los (85-100%) porque el 100 tiene un "%" o un ")" después.
+        
+        # 1. Buscar precio con "$" (Ej: $680 -> $730)
+        nueva_linea = re.sub(r'(\$\s*)(\d{2,4})', 
+                             lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
+        
+        # 2. Si no cambió, buscar número al final de la línea (Ej: = 680)
+        if nueva_linea == l:
+            nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', 
+                                 lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", l)
+        
+        lineas_limpias.append(nueva_linea)
+    return lineas_limpias
 
 def dibujar_imagen(lineas, titulo_pag, es_primera):
     try:
@@ -55,45 +58,53 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
     except:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     
-    # --- PROPORCIONES DE TU CÓDIGO ORIGINAL ---
-    margen_top = 240
-    espacio_linea = 22
-    alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 120
+    # --- DIMENSIONES FIJAS PARA EVITAR TEXTO MINÚSCULO ---
+    margen_top = 260
+    espacio_linea = 25
+    alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 100
     
     img = Image.new('RGB', (ancho_img, int(alto)), color="#FFFFFF")
     draw = ImageDraw.Draw(img)
     
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
-        font_logo = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 48)
+        # Intentamos cargar fuentes del sistema Streamlit Cloud
+        f_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+        font = ImageFont.truetype(f_path, font_size)
+        font_logo = ImageFont.truetype(f_path, 50) # Logos más grandes
     except:
         font = ImageFont.load_default()
         font_logo = ImageFont.load_default()
 
-    # --- ENCABEZADO NEGRO (Tu diseño original) ---
-    draw.rectangle([0, 0, ancho_img, 200], fill="#000000")
-    marcas = [("🍎 APPLE", 60), ("🔵 SAMSUNG", 400), ("📱 MOTOROLA", 800), ("🟠 XIAOMI", 1200)]
-    for texto_m, x_m in marcas:
-        draw.text((x_m, 50), texto_m, font=font_logo, fill="#FFFFFF")
+    # --- ENCABEZADO NEGRO ---
+    draw.rectangle([0, 0, ancho_img, 220], fill="#000000")
+    
+    # Logos con coordenadas fijas y espaciadas (APPLE | SAMSUNG | MOTOROLA | XIAOMI)
+    draw.text((80, 60), "🍎 APPLE", font=font_logo, fill="#FFFFFF")
+    draw.text((430, 60), "🔵 SAMSUNG", font=font_logo, fill="#FFFFFF")
+    draw.text((850, 60), "📱 MOTOROLA", font=font_logo, fill="#FFFFFF")
+    draw.text((1230, 60), "🟠 XIAOMI", font=font_logo, fill="#FFFFFF")
 
+    # Subtítulo de actualización
     info_header = f"📅 ACTUALIZADO: {fecha_hoy} | {titulo_pag}" if es_primera else f"🚀 CATÁLOGO | {titulo_pag}"
-    draw.text((60, 130), info_header, font=font, fill="#AAAAAA")
+    draw.text((80, 150), info_header, font=font, fill="#AAAAAA")
 
+    # --- LISTADO DE PRODUCTOS ---
     y = margen_top
     for line in lineas:
         color_txt = "#000000"
         if "*" in line:
-            color_txt = "#0056b3"
-            draw.text((60, y), line.replace("*", ""), font=font, fill=color_txt)
+            color_txt = "#0056b3" # Azul para categorías
+            draw.text((80, y), line.replace("*", ""), font=font, fill=color_txt)
         else:
-            draw.text((80, y), line.replace("-", "•"), font=font, fill=color_txt)
+            # Reemplaza guiones por puntos prolijos
+            draw.text((100, y), line.replace("-", "•"), font=font, fill=color_txt)
         y += font_size + espacio_linea
     return img
 
-# --- BOTONES Y PERSISTENCIA (Tu código exacto) ---
-col_b1, col_b2 = st.columns(2)
-with col_b1:
-    if st.button("🚀 GENERAR LISTA LIMPIA"):
+# --- INTERFAZ Y BOTONES ---
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🚀 GENERAR LISTA FINAL"):
         if input_text:
             lineas_finales = procesar_texto(input_text, comision)
             paginas = [lineas_finales[i:i + lineas_por_pag] for i in range(0, len(lineas_finales), lineas_por_pag)]
@@ -101,32 +112,30 @@ with col_b1:
             st.session_state.lista_imagenes = [] 
             for idx, pag in enumerate(paginas):
                 txt_pag = f"PARTE {idx+1}"
-                img_res = dibujar_imagen(pag, txt_pag, es_primera=(idx==0))
+                img_res = dibujar_imagen(pag, txt_pag, (idx==0))
                 
                 buf = io.BytesIO()
                 img_res.save(buf, format="PNG")
                 st.session_state.lista_imagenes.append({
-                    "titulo": txt_pag,
-                    "bytes": buf.getvalue(),
-                    "pil": img_res
+                    "titulo": txt_pag, "bytes": buf.getvalue(), "pil": img_res
                 })
         else:
-            st.error("Pega la lista primero.")
+            st.error("Pega la lista.")
 
-with col_b2:
-    if st.button("🗑️ NUEVA LISTA"):
+with col2:
+    if st.button("🗑️ NUEVA"):
         st.session_state.lista_imagenes = []
         st.rerun()
 
+# --- MOSTRAR RESULTADOS ---
 if st.session_state.lista_imagenes:
     for idx, item in enumerate(st.session_state.lista_imagenes):
         st.divider()
-        st.subheader(f"🖼️ {item['titulo']}")
         st.image(item['pil'], use_container_width=True)
         st.download_button(
             label=f"📥 Descargar {item['titulo']}",
             data=item['bytes'],
-            file_name=f"lista_p{idx+1}.png",
+            file_name=f"lista_{idx+1}.png",
             mime="image/png",
             key=f"dl_{idx}"
         )
