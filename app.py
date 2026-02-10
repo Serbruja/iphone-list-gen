@@ -7,7 +7,7 @@ import pytz
 
 st.set_page_config(page_title="Generador Premium Final", page_icon="📲", layout="wide")
 
-# --- MEMORIA DE SESIÓN ---
+# --- MEMORIA DE SESIÓN (Tu lógica original) ---
 if 'lista_imagenes' not in st.session_state:
     st.session_state.lista_imagenes = []
 
@@ -38,15 +38,15 @@ def procesar_texto(texto, incremento):
 
     resultado = []
     for linea in lineas_limpias:
-        # --- FIX SEGURO DE BATERÍA ---
-        # Solo sumamos la comisión si el número tiene un "$" adelante.
-        # Los porcentajes (85-100%) no tienen "$", así que quedan intactos.
+        # --- NUEVA LÓGICA DE PRECIO (REEMPLAZA LA ANTERIOR) ---
+        # 1. Si tiene un signo $ explícito (Ej: $420 -> $470)
         nueva_linea = re.sub(r'(\$\s*)(\d{2,4})', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
         
-        # Si el precio no tiene "$" pero está al final de la línea (como "= 470"), también lo sumamos.
+        # 2. Si no tiene $, solo sumamos si el número de 3 cifras está al FINAL de la línea (Ej: = 420)
+        # Esto ignora el (85-100%) porque el 100 no está al final, tiene un "%" o un ")" después.
         if nueva_linea == linea:
-             nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
-        
+            nueva_linea = re.sub(r'([=–\-:\s]\s*)(\d{3,4})$', lambda m: f"{m.group(1)}{int(m.group(2)) + incremento}", linea)
+            
         resultado.append(nueva_linea)
     return resultado
 
@@ -57,7 +57,7 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
     except:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     
-    # --- TUS PROPORCIONES ORIGINALES ---
+    # --- PROPORCIONES DE TU CÓDIGO ORIGINAL ---
     margen_top = 240
     espacio_linea = 22
     alto = margen_top + (len(lineas) * (font_size + espacio_linea)) + 120
@@ -72,7 +72,7 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
         font = ImageFont.load_default()
         font_logo = ImageFont.load_default()
 
-    # --- TU ENCABEZADO ORIGINAL ---
+    # --- ENCABEZADO NEGRO (Tu diseño original) ---
     draw.rectangle([0, 0, ancho_img, 200], fill="#000000")
     marcas = [("🍎 APPLE", 60), ("🔵 SAMSUNG", 400), ("📱 MOTOROLA", 800), ("🟠 XIAOMI", 1200)]
     for texto_m, x_m in marcas:
@@ -88,12 +88,11 @@ def dibujar_imagen(lineas, titulo_pag, es_primera):
             color_txt = "#0056b3"
             draw.text((60, y), line.replace("*", ""), font=font, fill=color_txt)
         else:
-            # Tu formato original de puntos
             draw.text((80, y), line.replace("-", "•"), font=font, fill=color_txt)
         y += font_size + espacio_linea
     return img
 
-# --- BOTONES (Tu lógica de persistencia) ---
+# --- BOTONES Y PERSISTENCIA (Tu lógica original) ---
 col_b1, col_b2 = st.columns(2)
 with col_b1:
     if st.button("🚀 GENERAR LISTA"):
@@ -109,13 +108,15 @@ with col_b1:
                 buf = io.BytesIO()
                 img_res.save(buf, format="PNG")
                 st.session_state.lista_imagenes.append({
-                    "titulo": txt_pag, "bytes": buf.getvalue(), "pil": img_res
+                    "titulo": txt_pag,
+                    "bytes": buf.getvalue(),
+                    "pil": img_res
                 })
         else:
-            st.error("Pega la lista.")
+            st.error("Pega la lista primero.")
 
 with col_b2:
-    if st.button("🗑️ NUEVA"):
+    if st.button("🗑️ NUEVA LISTA"):
         st.session_state.lista_imagenes = []
         st.rerun()
 
