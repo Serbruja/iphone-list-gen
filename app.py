@@ -1,40 +1,39 @@
 import streamlit as st
 import re
-from PIL import Image, ImageDraw, ImageFont
+import matplotlib.pyplot as plt
+from PIL import Image
 import io
 from datetime import datetime
 
-st.set_page_config(page_title="Lista Final WhatsApp", layout="wide")
+st.set_page_config(page_title="Lista Premium Matplotlib", layout="wide")
 
 # --- AJUSTES ---
-st.sidebar.header("⚙️ Control de Calidad")
+st.sidebar.header("🎨 Estética de la Lista")
 comision = st.sidebar.number_input("Suma fija ($)", value=50)
-# Un ancho menor (500-600) hace que el texto se vea mucho más grande en el celular
-ancho_hoja = 550 
-font_size = st.sidebar.slider("Tamaño de Letra", 40, 80, 60)
+font_size = st.sidebar.slider("Tamaño de Letra", 10, 40, 22) # Matplotlib usa escalas distintas
 
-st.title("📲 Generador de Lista Legible")
+st.title("📲 Generador de Lista Oficial (Alta Definición)")
 
 uploaded_file = st.file_uploader("1. Sube tu Banner", type=["jpg", "png"])
 if uploaded_file:
-    st.session_state.img_banner = Image.open(uploaded_file)
+    st.session_state.banner_img = Image.open(uploaded_file)
 
-input_text = st.text_area("2. Pega tu lista aquí:", height=250)
+input_text = st.text_area("2. Pega tu lista:", height=200)
 
-def procesar_lista_v2(texto, plus):
+def limpiar_y_procesar(texto, plus):
     lineas_finales = []
     fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     lineas_finales.append(f"LISTA ACTUALIZADA ({fecha_hoy})")
     
-    basura = ["garantía", "11 - 18hs", "nüñez", "lunes a viernes", "encomiendas", "usd/pesos", "usdt", "actualizada", "———"]
+    basura = ["garantía", "11 - 18hs", "nüñez", "lunes a viernes", "encomiendas", "usd/pesos", "usdt"]
     
     lineas_raw = texto.split('\n')
     for l in lineas_raw:
         limpia = l.strip()
-        if not limpia or any(b in limpia.lower() for b in basura):
+        if not limpia or any(b in limpia.lower() for b in basura) or "———" in limpia:
             continue
         
-        # UNIÓN DE COLORES: Si empieza con "-" se une a la anterior entre ()
+        # Lógica de unión de colores y protección de batería (%)
         if limpia.startswith("-") and lineas_finales:
             color = limpia.replace("-", "").strip()
             if "(" in lineas_finales[-1] and "%" not in lineas_finales[-1].split('(')[-1]:
@@ -43,65 +42,79 @@ def procesar_lista_v2(texto, plus):
                 lineas_finales[-1] += f" ({color})"
             continue
 
-        # SUMA DE COMISIÓN INTELIGENTE (Solo después de = o junto a $)
+        # SUMA DE COMISIÓN SOLO A PRECIOS (Detecta el $ o el =)
         if "$" in limpia or "=" in limpia:
-            # Esta regex busca números que sigan a un '=' o precedan/sigan a un '$'
+            # Busca números que estén después de = o al lado de $
             limpia = re.sub(r'(?<=[=\$])\s*(\d+)|(\d+)\s*(?=[=\$])', 
                             lambda m: str(int(m.group(0)) + plus) if m.group(0).isdigit() else m.group(0), 
                             limpia)
         
-        # Limpieza de basura visual
-        limpia = limpia.replace("*", "").replace("🔺", "").replace("🔻", "").replace("❕", "").strip()
+        limpia = limpia.replace("*", "").replace("🔺", "").replace("🔻", "").strip()
         lineas_finales.append(limpia)
-        
     return lineas_finales
 
-def dibujar_parte(datos, num_parte):
-    # Banner
-    if 'img_banner' in st.session_state:
-        w_perc = (ancho_hoja / float(st.session_state.img_banner.size[0]))
-        h_banner = int((float(st.session_state.img_banner.size[1]) * float(w_perc)))
-        banner_res = st.session_state.img_banner.resize((ancho_hoja, h_banner), Image.Resampling.LANCZOS)
-    else:
-        h_banner = 20
-        banner_res = Image.new('RGB', (ancho_hoja, h_banner), color="white")
+def crear_imagen_matplotlib(datos, num_parte):
+    # Configuramos la figura
+    # Un "ancho" de 8 y alto dinámico
+    alto_dinamico = len(datos) * 0.6 + 2 
+    fig, ax = plt.subplots(figsize=(8, alto_dinamico), dpi=100)
+    fig.patch.set_facecolor('white')
+    ax.axis('off')
 
-    interlineado = 12
-    alto_total = h_banner + (len(datos) * (font_size + interlineado)) + 100
-    img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="white")
-    img.paste(banner_res, (0, 0))
+    # Si hay banner, lo ponemos arriba (usando una técnica de subplots o simplemente texto)
+    # Por simplicidad y para que la letra sea la prioridad, manejaremos el banner como imagen aparte
+    # o lo pegamos al final. Aquí nos enfocamos en el texto:
     
-    draw = ImageDraw.Draw(img)
-    try:
-        # Usamos Bold para máxima legibilidad
-        font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
-    except:
-        font = ImageFont.load_default()
-
-    y = h_banner + 40
+    y_pos = 1.0
     for i, linea in enumerate(datos):
-        # Colores: Azul para secciones y fecha, Negro para el resto
-        es_seccion = any(x in linea.upper() for x in ["IPHONE", "SAMSUNG", "TESTERS", "SELLADOS", "ACTUALIZADA"])
-        color = "#004a99" if es_seccion else "black"
+        # Estilo de letra
+        es_titulo = any(x in linea.upper() for x in ["ACTUALIZADA", "IPHONE", "SAMSUNG", "TESTERS"])
+        peso = 'bold' if es_titulo or "=" in linea else 'normal'
+        color = '#004a99' if es_titulo else 'black'
         
-        draw.text((25, y), linea, font=font, fill=color)
-        y += font_size + interlineado
-        
-    return img
+        ax.text(0.05, y_pos, linea, 
+                fontsize=font_size, 
+                fontweight=peso, 
+                color=color,
+                ha='left', va='center',
+                transform=ax.transAxes,
+                family='sans-serif')
+        y_pos -= (1.0 / (len(datos) + 1))
 
-if st.button("🚀 GENERAR IMÁGENES GIGANTES"):
+    # Guardar a buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.2, facecolor='white')
+    plt.close(fig)
+    return Image.open(buf)
+
+if st.button("🚀 GENERAR IMÁGENES DE ALTA LECTURA"):
     if input_text:
-        todas_las_lineas = procesar_lista_v2(input_text, comision)
+        todas = limpiar_y_procesar(input_text, comision)
         
-        # Corte de página: Máximo 12 líneas para asegurar que la letra sea ENORME
+        # Corte de página: 12 líneas máximo para que en el celu se vea GIGANTE
         limite = 12
-        partes = [todas_las_lineas[i:i + limite] for i in range(0, len(todas_las_lineas), limite)]
+        partes = [todas[i:i + limite] for i in range(0, len(todas), limite)]
         
         for idx, parte in enumerate(partes):
-            st.write(f"### Vista Previa - Parte {idx + 1}")
-            img_final = dibujar_parte(parte, idx + 1)
+            st.write(f"### Parte {idx + 1}")
+            img_texto = crear_imagen_matplotlib(parte, idx + 1)
             
-            buf = io.BytesIO()
-            img_final.save(buf, format="PNG")
-            st.image(img_final)
-            st.download_button(f"📥 Descargar Parte {idx + 1}", buf.getvalue(), f"lista_vips_{idx+1}.png")
+            # Pegar Banner arriba si existe
+            if 'banner_img' in st.session_state:
+                ban = st.session_state.banner_img
+                # Redimensionar banner al ancho de la imagen de texto
+                w_t, h_t = img_texto.size
+                w_b, h_b = ban.size
+                new_h_b = int(h_b * (w_t / w_b))
+                ban_res = ban.resize((w_t, new_h_b), Image.Resampling.LANCZOS)
+                
+                final_img = Image.new('RGB', (w_t, h_t + new_h_b), 'white')
+                final_img.paste(ban_res, (0, 0))
+                final_img.paste(img_texto, (0, new_h_b))
+            else:
+                final_img = img_texto
+
+            buf_final = io.BytesIO()
+            final_img.save(buf_final, format="PNG")
+            st.image(final_img)
+            st.download_button(f"📥 Descargar Parte {idx + 1}", buf_final.getvalue(), f"lista_v{idx+1}.png")
