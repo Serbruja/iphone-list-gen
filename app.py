@@ -4,29 +4,28 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 from datetime import datetime
 
-st.set_page_config(page_title="Generador Pro WhatsApp", layout="wide")
+st.set_page_config(page_title="Lista Final WhatsApp", layout="wide")
 
-# --- INTERFAZ DE AJUSTES ---
-st.sidebar.header("⚙️ Configuración")
-comision = st.sidebar.number_input("Comisión a sumar ($)", value=50)
-font_size = st.sidebar.slider("Tamaño de Letra", 40, 80, 55)
-ancho_hoja = 750 # Ancho equilibrado para nitidez
+# --- AJUSTES ---
+st.sidebar.header("⚙️ Control de Calidad")
+comision = st.sidebar.number_input("Suma fija ($)", value=50)
+# Un ancho menor (500-600) hace que el texto se vea mucho más grande en el celular
+ancho_hoja = 550 
+font_size = st.sidebar.slider("Tamaño de Letra", 40, 80, 60)
 
-st.title("📲 Generador de Listas para Estados")
+st.title("📲 Generador de Lista Legible")
 
-uploaded_file = st.file_uploader("1. Sube tu Banner (se verá completo)", type=["jpg", "png"])
+uploaded_file = st.file_uploader("1. Sube tu Banner", type=["jpg", "png"])
 if uploaded_file:
     st.session_state.img_banner = Image.open(uploaded_file)
 
 input_text = st.text_area("2. Pega tu lista aquí:", height=250)
 
-def procesar_lista(texto, plus):
+def procesar_lista_v2(texto, plus):
     lineas_finales = []
-    # Condición 2: Fecha del día
     fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     lineas_finales.append(f"LISTA ACTUALIZADA ({fecha_hoy})")
     
-    # Condición 5: Filtros de limpieza
     basura = ["garantía", "11 - 18hs", "nüñez", "lunes a viernes", "encomiendas", "usd/pesos", "usdt", "actualizada", "———"]
     
     lineas_raw = texto.split('\n')
@@ -35,33 +34,30 @@ def procesar_lista(texto, plus):
         if not limpia or any(b in limpia.lower() for b in basura):
             continue
         
-        # Condición 3 & 4: Unir colores y respetar porcentajes
-        # Si la línea empieza con guion, es un color/detalle para la línea anterior
+        # UNIÓN DE COLORES: Si empieza con "-" se une a la anterior entre ()
         if limpia.startswith("-") and lineas_finales:
             color = limpia.replace("-", "").strip()
-            if "(" in lineas_finales[-1] and "%" in lineas_finales[-1]:
-                # Si ya hay paréntesis de porcentaje, ponemos los colores en otros paréntesis
-                lineas_finales[-1] += f" ({color})"
-            elif "(" in lineas_finales[-1]:
-                 # Si ya hay un paréntesis (de color), lo unimos con guion
+            if "(" in lineas_finales[-1] and "%" not in lineas_finales[-1].split('(')[-1]:
                 lineas_finales[-1] = lineas_finales[-1].rstrip(")") + f" - {color})"
             else:
                 lineas_finales[-1] += f" ({color})"
             continue
 
-        # Condición 1: Sumar comisión SOLO si tiene el símbolo $
-        if "$" in limpia:
-            # Buscamos números de 3 o 4 cifras
-            limpia = re.sub(r'(\d{3,4})', lambda m: str(int(m.group(1)) + plus), limpia)
+        # SUMA DE COMISIÓN INTELIGENTE (Solo después de = o junto a $)
+        if "$" in limpia or "=" in limpia:
+            # Esta regex busca números que sigan a un '=' o precedan/sigan a un '$'
+            limpia = re.sub(r'(?<=[=\$])\s*(\d+)|(\d+)\s*(?=[=\$])', 
+                            lambda m: str(int(m.group(0)) + plus) if m.group(0).isdigit() else m.group(0), 
+                            limpia)
         
-        # Limpieza de símbolos estéticos
+        # Limpieza de basura visual
         limpia = limpia.replace("*", "").replace("🔺", "").replace("🔻", "").replace("❕", "").strip()
         lineas_finales.append(limpia)
         
     return lineas_finales
 
-def dibujar_imagen(datos, titulo_parte):
-    # Procesar Banner
+def dibujar_parte(datos, num_parte):
+    # Banner
     if 'img_banner' in st.session_state:
         w_perc = (ancho_hoja / float(st.session_state.img_banner.size[0]))
         h_banner = int((float(st.session_state.img_banner.size[1]) * float(w_perc)))
@@ -70,46 +66,42 @@ def dibujar_imagen(datos, titulo_parte):
         h_banner = 20
         banner_res = Image.new('RGB', (ancho_hoja, h_banner), color="white")
 
-    # Espaciado y dimensiones
-    interlineado = 10
-    alto_total = h_banner + (len(datos) * (font_size + interlineado)) + 80
+    interlineado = 12
+    alto_total = h_banner + (len(datos) * (font_size + interlineado)) + 100
     img = Image.new('RGB', (ancho_hoja, int(alto_total)), color="white")
     img.paste(banner_res, (0, 0))
     
     draw = ImageDraw.Draw(img)
     try:
+        # Usamos Bold para máxima legibilidad
         font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", font_size)
-        font_min = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 30)
     except:
-        font = font_min = ImageFont.load_default()
+        font = ImageFont.load_default()
 
-    # Dibujar indicador de parte
-    draw.text((ancho_hoja - 150, 10), titulo_parte, font=font_min, fill="gray")
-
-    y = h_banner + 30
+    y = h_banner + 40
     for i, linea in enumerate(datos):
-        # Colores: Azul para secciones, Negro para el resto
+        # Colores: Azul para secciones y fecha, Negro para el resto
         es_seccion = any(x in linea.upper() for x in ["IPHONE", "SAMSUNG", "TESTERS", "SELLADOS", "ACTUALIZADA"])
         color = "#004a99" if es_seccion else "black"
         
-        draw.text((35, y), linea, font=font, fill=color)
+        draw.text((25, y), linea, font=font, fill=color)
         y += font_size + interlineado
         
     return img
 
-if st.button("🚀 GENERAR LISTAS (CON CORTE AUTOMÁTICO)"):
+if st.button("🚀 GENERAR IMÁGENES GIGANTES"):
     if input_text:
-        todas_las_lineas = procesar_lista(input_text, comision)
+        todas_las_lineas = procesar_lista_v2(input_text, comision)
         
-        # Condición 7: Corte de página (Máximo 15 líneas por imagen para que la letra sea gigante)
-        limite = 15
+        # Corte de página: Máximo 12 líneas para asegurar que la letra sea ENORME
+        limite = 12
         partes = [todas_las_lineas[i:i + limite] for i in range(0, len(todas_las_lineas), limite)]
         
         for idx, parte in enumerate(partes):
-            st.subheader(f"Parte {idx + 1}")
-            img_resultado = dibujar_imagen(parte, f"PARTE {idx + 1}")
+            st.write(f"### Vista Previa - Parte {idx + 1}")
+            img_final = dibujar_parte(parte, idx + 1)
             
             buf = io.BytesIO()
-            img_resultado.save(buf, format="PNG")
-            st.image(img_resultado)
-            st.download_button(f"📥 Descargar Parte {idx + 1}", buf.getvalue(), f"lista_parte_{idx+1}.png")
+            img_final.save(buf, format="PNG")
+            st.image(img_final)
+            st.download_button(f"📥 Descargar Parte {idx + 1}", buf.getvalue(), f"lista_vips_{idx+1}.png")
