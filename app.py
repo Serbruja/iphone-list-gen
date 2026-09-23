@@ -39,7 +39,7 @@ def procesar_estricto(texto, plus, modo_escalas):
     # Palabras basura y separadores
     basura = [
         "garantia", "11 - 18hs", "nüñez", "lunes a viernes", "lun a vier", 
-        "encomiendas", "usd/pesos", "usdt", "bajamos", "caba"
+        "encomiendas", "usd/pesos", "usdt", "cargador", "caba"
     ]
     
     for l in texto.split('\n'):
@@ -95,7 +95,7 @@ def generar_con_matplotlib(datos, limite_fijo=10):
     y_pos = 0.95 
 
     for linea in datos:
-        es_tit = any(x in linea.upper() for x in ["IPHONE", "SAMSUNG", "ACTUALIZADA", "TESTERS", "SELLADOS", "AIRPODS", "IPAD", "CARGADOR"])
+        es_tit = any(x in linea.upper() for x in ["IPHONE", "SAMSUNG", "ACTUALIZADA", "TESTERS", "SELLADOS", "AIRPODS", "IPAD"])
         
         ax.text(0.05, y_pos, linea, 
                 fontsize=font_size_val, 
